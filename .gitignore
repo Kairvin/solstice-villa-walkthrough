@@ -1,0 +1,32 @@
+# Dependencies & Build
+node_modules/
+dist/
+
+# Raw 3D Source Assets & Heavy Files (>100MB rejected by GitHub)
+reference_villa/
+*.blend
+*.blend1
+
+# Environment & Local Configuration
+.env
+.env.local
+.env.*.local
+
+# Operating System & Editor Files
+.DS_Store
+**/.DS_Store
+.vscode/
+.idea/
+*.log
+npm-debug.log*
+
+# Render Pipeline Logs & Scratch Files
+renders/PAUSE
+renders/*-status.json
+renders/*.tmp
+renders/clearance-report.json
+renders/review/
+
+# Python Cache
+__pycache__/
+*.py[cod]

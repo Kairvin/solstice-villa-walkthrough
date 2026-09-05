@@ -1,0 +1,16 @@
+{
+  "name": "solstice-villa-walkthrough",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "node scripts/verify-sequence.mjs && vite build",
+    "build:ui": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "node --test tests/*.test.mjs",
+    "verify:sequence": "node scripts/verify-sequence.mjs"
+  },
+  "dependencies": { "gsap": "^3.13.0", "@fontsource/manrope": "^5.2.0" },
+  "devDependencies": { "vite": "^7.1.0", "tailwindcss": "^4.1.0", "@tailwindcss/vite": "^4.1.0" }
+}
