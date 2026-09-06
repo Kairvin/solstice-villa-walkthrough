@@ -26,20 +26,7 @@ test('preloads every compressed frame with bounded parallelism and reports compl
     active++; peak=Math.max(peak, active); await new Promise(r => setTimeout(r, 1)); active--; fetched++; return ok();
   }});
   await cache.preload(loaded => { latest=loaded; });
-  assert.equal(fetched,150); assert.equal(latest,150); assert.equal(cache.blobs.size,150); assert.ok(peak <= 6);
-  cache.dispose();
-});
-test('supports progressive initial window streaming before background completion', async () => {
-  let initialReadyFired = false;
-  const cache = new SequenceCache({ count: 100, fetcher: async () => {
-    await new Promise(r => setTimeout(r, 2)); return ok();
-  }});
-  await cache.preload({
-    initialCount: 20,
-    onInitialReady: () => { initialReadyFired = true; },
-  });
-  assert.equal(initialReadyFired, true);
-  assert.ok(cache.blobs.size >= 20);
+  assert.equal(fetched,150); assert.equal(latest,150); assert.equal(cache.blobs.size,150); assert.ok(peak <= 8);
   cache.dispose();
 });
 test('retry preserves successful downloads and recovers missing frames without double-loading them', async () => {

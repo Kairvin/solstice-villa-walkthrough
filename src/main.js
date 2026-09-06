@@ -23,7 +23,7 @@ const chapterNames = CHAPTERS.map(chapter => chapter.name);
 const state = { progress: 0, requested: 1, displayed: 0, activeChapter: -1, ready: false };
 let raf = 0, width = 0, height = 0, dpr = 1, animation, trigger, booting = false, skipped = false;
 const cache = new SequenceCache({
-  capacity: window.innerWidth < 768 ? 12 : 18,
+  capacity: window.innerWidth < 768 ? 16 : 24,
   onReady: () => scheduleDraw(),
 });
 
@@ -141,34 +141,21 @@ async function boot() {
   try {
     if (!context) throw new Error('Canvas is unavailable.');
     cache.failedDecodes.clear();
-    let revealed = false;
-    const revealArrival = async () => {
-      if (revealed) return;
-      revealed = true;
-      resize();
-      await cache.start(state.requested);
-      state.ready = true;
-      initJourney(); draw();
-      if (!skipped) hideLoader();
-      ScrollTrigger.refresh();
-      const hash = location.hash.slice(1);
-      if (hash && !skipped) scrollToDestination(hash);
-    };
-
-    await cache.preload({
-      initialCount: 40,
-      onInitialReady: revealArrival,
-      onProgress: (loaded, total, initialLoaded, initialTotal) => {
-        if (!revealed) {
-          const percent = Math.round(initialLoaded / initialTotal * 100);
-          $('#loading-number').textContent = `${percent}%`;
-          $('#loading-progress').setAttribute('aria-valuemax', initialTotal);
-          $('#loading-progress').setAttribute('aria-valuenow', initialLoaded);
-          $('#loading-progress span').style.transform = `scaleX(${initialLoaded / initialTotal})`;
-        }
-      },
+    await cache.preload((loaded, total) => {
+      const percent = Math.round(loaded / total * 100);
+      $('#loading-number').textContent = `${percent}%`;
+      $('#loading-progress').setAttribute('aria-valuemax', total);
+      $('#loading-progress').setAttribute('aria-valuenow', loaded);
+      $('#loading-progress span').style.transform = `scaleX(${loaded / total})`;
     });
-    await revealArrival();
+    resize();
+    await cache.start(state.requested);
+    state.ready = true;
+    initJourney(); draw();
+    if (!skipped) hideLoader();
+    ScrollTrigger.refresh();
+    const hash = location.hash.slice(1);
+    if (hash && !skipped) scrollToDestination(hash);
   } catch (error) {
     console.error('Solstice walkthrough:', error);
     $('#loading-label').textContent = 'Your arrival is on hold';

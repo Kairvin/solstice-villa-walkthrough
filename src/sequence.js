@@ -24,12 +24,13 @@ export class SequenceCache {
     this.controller = new AbortController(); this.target = 1; this.direction = 1;
     this.active = false; this.disposed = false; this.failedDecodes = new Set();
   }
-  async _fetchBatch(indices, onTick = () => {}) {
-    if (!indices.length || this.disposed) return;
+  async preload(onProgress = () => {}) {
+    const missing = Array.from({ length: this.count }, (_, i) => i + 1).filter(i => !this.blobs.has(i));
+    onProgress(this.blobs.size, this.count);
     let cursor = 0;
     const worker = async () => {
-      while (cursor < indices.length && !this.disposed) {
-        const index = indices[cursor++];
+      while (cursor < missing.length && !this.disposed) {
+        const index = missing[cursor++];
         if (this.blobs.has(index)) continue;
         let error;
         for (let attempt = 0; attempt < 3; attempt++) {
@@ -42,7 +43,7 @@ export class SequenceCache {
             const blob = await response.blob();
             if (blob.size < 500 || !blob.type.startsWith('image/')) throw new Error(`Frame ${index} is not a valid image.`);
             this.blobs.set(index, blob);
-            onTick(this.blobs.size);
+            onProgress(this.blobs.size, this.count);
             error = null;
             break;
           } catch (e) {
@@ -54,47 +55,18 @@ export class SequenceCache {
         if (error) throw error;
       }
     };
-    const workers = Array.from({ length: Math.min(6, indices.length) }, worker);
+    const workers = Array.from({ length: Math.min(8, missing.length) }, worker);
     const results = await Promise.allSettled(workers);
     const failure = results.find(result => result.status === 'rejected');
     if (failure) throw failure.reason;
-  }
-  async preload(options = {}) {
-    const onProgress = typeof options === 'function' ? options : (options.onProgress || (() => {}));
-    const onInitialReady = typeof options === 'object' && options.onInitialReady ? options.onInitialReady : null;
-    const initialTarget = Math.min(options.initialCount || (onInitialReady ? 40 : this.count), this.count);
 
-    // Phase 1: Rapid arrival window
-    const initialMissing = Array.from({ length: initialTarget }, (_, i) => i + 1).filter(i => !this.blobs.has(i));
-    onProgress(this.blobs.size, this.count, Math.min(this.blobs.size, initialTarget), initialTarget);
-
-    await this._fetchBatch(initialMissing, () => {
-      onProgress(this.blobs.size, this.count, Math.min(this.blobs.size, initialTarget), initialTarget);
-    });
-
-    if (onInitialReady && !this.disposed) {
-      try { onInitialReady(); } catch (err) { console.error('onInitialReady error:', err); }
-    }
-
-    // Phase 2: Background streaming for subsequent chapters
-    if (initialTarget < this.count && !this.disposed) {
-      const remainingMissing = Array.from({ length: this.count - initialTarget }, (_, i) => initialTarget + i + 1).filter(i => !this.blobs.has(i));
-      const bgPromise = this._fetchBatch(remainingMissing, () => {
-        onProgress(this.blobs.size, this.count, initialTarget, initialTarget);
-      });
-      if (!onInitialReady) {
-        await bgPromise;
-      }
-    }
-
-    onProgress(this.blobs.size, this.count, initialTarget, initialTarget);
+    onProgress(this.blobs.size, this.count);
   }
   async decode(index) {
     if (this.images.has(index)) return this.images.get(index);
     if (this.pending.has(index)) return this.pending.get(index);
     let blob = this.blobs.get(index);
     if (!blob && this.blobs.size > 0) {
-      // Graceful nearest-available frame while scrubbing ahead of network
       const available = Array.from(this.blobs.keys());
       let closest = available[0];
       let minDiff = Math.abs(closest - index);
@@ -139,7 +111,7 @@ export class SequenceCache {
   pump() {
     if (!this.active || this.disposed) return;
     for (const index of this.priorities()) {
-      if (this.pending.size >= 3) break;
+      if (this.pending.size >= 6) break;
       if (this.images.has(index) || this.pending.has(index) || this.failedDecodes.has(index)) continue;
       this.decode(index).catch(() => {
         this.failedDecodes.add(index);
