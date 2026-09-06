@@ -20,7 +20,7 @@ export function jpegDimensions(buffer) {
 }
 export async function verifySequence(root = resolve('.')) {
   const frames = [], failures = [], hashes = new Set();
-  for (let frame = 1; frame <= 150; frame++) {
+  for (let frame = 1; frame <= 350; frame++) {
     const name = `frame_${String(frame).padStart(4, '0')}.jpg`;
     try {
       const file = await readFile(resolve(root, 'renders/sequence', name));
@@ -32,9 +32,9 @@ export async function verifySequence(root = resolve('.')) {
     } catch (error) { failures.push(`${name}: ${error.message}`); }
   }
   if (failures.length) throw new Error(`Sequence is incomplete or invalid (${failures.length} issues):\n${failures.join('\n')}`);
-  const manifest = { count: 150, width: 1920, height: 1080, format: 'JPEG', quality: 90, totalBytes: frames.reduce((sum, frame) => sum + frame.bytes, 0), frames };
+  const manifest = { count: 350, width: 1920, height: 1080, format: 'JPEG', quality: 90, totalBytes: frames.reduce((sum, frame) => sum + frame.bytes, 0), frames };
   await writeFile(resolve(root, 'public/sequence-manifest.json'), JSON.stringify(manifest, null, 2));
-  console.log(`Verified all 150 unique JPEG frames at 1920×1080. ${(manifest.totalBytes / 1024 / 1024).toFixed(1)} MiB total.`);
+  console.log(`Verified all 350 unique JPEG frames at 1920×1080. ${(manifest.totalBytes / 1024 / 1024).toFixed(1)} MiB total.`);
   return manifest;
 }
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {

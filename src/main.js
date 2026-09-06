@@ -1,7 +1,9 @@
 import './style.css';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { SequenceCache, frameFromProgress, coverRect } from './sequence.js';
+import { SequenceCache, frameFromProgress, coverRect, FRAME_COUNT } from './sequence.js';
+
+import { CHAPTERS, chapterFromProgress, nextChapterDestination } from './chapters.js';
 
 gsap.registerPlugin(ScrollTrigger);
 const $ = (selector) => document.querySelector(selector);
@@ -12,10 +14,12 @@ $('#main').inert = true; $('.masthead').inert = true;
 const chapters = [...document.querySelectorAll('.chapter')];
 const chapterLinks = [...document.querySelectorAll('[data-chapter-link]')];
 const motionPreference = matchMedia('(prefers-reduced-motion: reduce)');
-let reducedMotion = motionPreference.matches;
-const anchors = ['residence', 'outdoors', 'interiors'];
-const chapterProgress = [0, .36, .74];
-const chapterNames = ['The Solstice Villa', 'Outdoor Tranquility', 'Light-filled Interiors'];
+let motionChoice;
+try { motionChoice = localStorage.getItem('solstice-motion'); } catch {}
+let reducedMotion = motionChoice === 'full' ? false : motionChoice === 'reduced' ? true : motionPreference.matches;
+const anchors = CHAPTERS.map(chapter => chapter.id);
+const chapterProgress = CHAPTERS.map(chapter => chapter.nav);
+const chapterNames = CHAPTERS.map(chapter => chapter.name);
 const state = { progress: 0, requested: 1, displayed: 0, activeChapter: -1, ready: false };
 let raf = 0, width = 0, height = 0, dpr = 1, animation, trigger, booting = false, skipped = false;
 const cache = new SequenceCache({
@@ -54,8 +58,8 @@ function resize() {
 }
 function updateView() {
   const p = state.progress;
-  const chapter = p < .30 ? 0 : p < .65 ? 1 : 2;
-  state.requested = reducedMotion ? [1, 45, 150][chapter] : frameFromProgress(p);
+  const chapter = chapterFromProgress(p);
+  state.requested = reducedMotion ? CHAPTERS[chapter].still : frameFromProgress(p);
   cache.request(state.requested); scheduleDraw();
   $('.reading-progress span').style.transform = `scaleX(${p})`;
   if (chapter !== state.activeChapter) {
@@ -69,8 +73,8 @@ function updateView() {
       else link.removeAttribute('aria-current');
     });
     $('#chapter-status').textContent = chapterNames[chapter];
-    $('#scroll-cue-label').textContent = chapter === 2 ? 'YOUR PRIVATE VISIT' : 'SCROLL TO EXPLORE';
-    $('#explore').setAttribute('aria-label', chapter === 2 ? 'Continue to private tours' : `Explore ${chapter === 0 ? 'the outdoors' : 'the interiors'}`);
+    $('#scroll-cue-label').textContent = chapter === CHAPTERS.length - 1 ? 'YOUR PRIVATE VISIT' : 'SCROLL TO EXPLORE';
+    $('#explore').setAttribute('aria-label', chapter === CHAPTERS.length - 1 ? 'Continue to private tours' : `Explore ${CHAPTERS[chapter + 1].name}`);
   }
 }
 function initJourney() {
@@ -96,11 +100,11 @@ function initJourney() {
       scrollTrigger: { id: 'solstice-journey', trigger: '#journey', start: 'top top', end: 'bottom bottom', scrub: 1, invalidateOnRefresh: true },
     });
     timeline.fromTo(state, { progress: 0 }, { progress: 1, duration: 1, ease: 'none', onUpdate: updateView }, 0);
-    timeline.set(chapters[0], { autoAlpha: 1 }, 0);
-    timeline.to(chapters[0], { autoAlpha: 0, y: -16, duration: .055, ease: 'none' }, .195);
-    timeline.fromTo(chapters[1], { autoAlpha: 0, y: 18 }, { autoAlpha: 1, y: 0, duration: .055, ease: 'none' }, .30);
-    timeline.to(chapters[1], { autoAlpha: 0, y: -16, duration: .055, ease: 'none' }, .545);
-    timeline.fromTo(chapters[2], { autoAlpha: 0, y: 18 }, { autoAlpha: 1, y: 0, duration: .055, ease: 'none' }, .65);
+    CHAPTERS.forEach((chapter, index) => {
+      if (index === 0) timeline.set(chapters[index], { autoAlpha: 1 }, 0);
+      else timeline.fromTo(chapters[index], { autoAlpha: 0, y: 18 }, { autoAlpha: 1, y: 0, duration: .02, ease: 'none' }, chapter.start);
+      if (index < CHAPTERS.length - 1) timeline.to(chapters[index], { autoAlpha: 0, y: -16, duration: .025, ease: 'none' }, chapter.end - .025);
+    });
     animation = timeline; trigger = timeline.scrollTrigger;
     timeline.progress(trigger.progress);
     updateView();
@@ -140,6 +144,7 @@ async function boot() {
     await cache.preload((loaded, total) => {
       const percent = Math.round(loaded / total * 100);
       $('#loading-number').textContent = `${percent}%`;
+      $('#loading-progress').setAttribute('aria-valuemax', FRAME_COUNT);
       $('#loading-progress').setAttribute('aria-valuenow', loaded);
       $('#loading-progress span').style.transform = `scaleX(${loaded / total})`;
     });
@@ -187,10 +192,14 @@ document.querySelectorAll('a[href^="#"]').forEach(link => {
     scrollToDestination(id, id === 'visit' || id === 'tour-details');
   });
 });
-$('#explore').addEventListener('click', () => scrollToDestination(state.activeChapter >= 2 ? 'visit' : anchors[state.activeChapter + 1]));
+$('#explore').addEventListener('click', () => scrollToDestination(nextChapterDestination(state.activeChapter)));
 window.addEventListener('resize', resize, { passive: true });
-motionPreference.addEventListener('change', event => { reducedMotion = event.matches; if (state.ready) initJourney(); });
-$('#motion-toggle').addEventListener('click', () => { reducedMotion = !reducedMotion; initJourney(); });
+motionPreference.addEventListener('change', event => { if (!motionChoice) { reducedMotion = event.matches; if (state.ready) initJourney(); } });
+$('#motion-toggle').addEventListener('click', () => {
+  reducedMotion = !reducedMotion; motionChoice = reducedMotion ? 'reduced' : 'full';
+  try { localStorage.setItem('solstice-motion', motionChoice); } catch {}
+  initJourney();
+});
 window.addEventListener('pagehide', event => {
   if (!event.persisted) { cache.dispose(); cancelAnimationFrame(raf); animation?.kill(); trigger?.kill(); }
 });

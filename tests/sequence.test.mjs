@@ -5,10 +5,10 @@ import { SequenceCache, coverRect, frameFromProgress, frameUrl } from '../src/se
 test('scroll mapping includes both endpoints and clamps overscroll', () => {
   assert.equal(frameFromProgress(-.2), 1);
   assert.equal(frameFromProgress(0), 1);
-  assert.equal(frameFromProgress(.5), 76);
-  assert.equal(frameFromProgress(1), 150);
-  assert.equal(frameFromProgress(1.5), 150);
-  assert.equal(frameUrl(7, '/villa/'), '/villa/renders/sequence/frame_0007.jpg');
+  assert.equal(frameFromProgress(.5), 176);
+  assert.equal(frameFromProgress(1), 350);
+  assert.equal(frameFromProgress(1.5), 350);
+  assert.equal(frameUrl(7, '/villa/'), '/villa/renders/sequence/frame_0007.jpg?v=3');
 });
 test('canvas cover preserves aspect ratio for portrait, landscape, and retina-sized surfaces', () => {
   for (const [w, h] of [[390,844],[1440,900],[2880,1800],[1920,1080]]) {
@@ -61,4 +61,24 @@ test('dispose closes late decodes and prevents retained image resources',async()
   const cache=new SequenceCache({count:1,decoder:async()=>{await new Promise(r=>setTimeout(r,10));return{close(){closed=true;}};}});
   cache.blobs.set(1,blob);const pending=cache.decode(1);cache.dispose();await pending;
   assert.equal(closed,true);assert.equal(cache.images.size,0);
+});
+
+import { CHAPTERS, chapterFromProgress, nextChapterDestination } from '../src/chapters.js';
+test('each chapter navigation point lands on fully visible text and its own camera act',()=>{
+  CHAPTERS.forEach((chapter,index)=>{
+    assert.equal(chapterFromProgress(chapter.nav),index);
+    if(index>0)assert.ok(chapter.nav>=chapter.start+.02);
+    if(index<CHAPTERS.length-1)assert.ok(chapter.nav<=chapter.end-.025);
+  });
+  assert.equal(frameFromProgress(CHAPTERS[3].nav),202);
+  assert.equal(frameFromProgress(CHAPTERS[5].nav),329);
+});
+test('a missing frame rejects the preload and is never replaced by a repeated still',async()=>{
+  const cache=new SequenceCache({count:3,url:i=>i,fetcher:async i=>i===2?{ok:false,status:404}:ok()});
+  await assert.rejects(cache.preload(),/404/);
+  assert.equal(cache.blobs.has(2),false);assert.equal(cache.blobs.size,2);cache.dispose();
+});
+
+test('the explore button advances through all six chapters before the tour section',()=>{
+  assert.deepEqual(CHAPTERS.map((_,index)=>nextChapterDestination(index)),['outdoors','living','dining','stairs','suite','visit']);
 });

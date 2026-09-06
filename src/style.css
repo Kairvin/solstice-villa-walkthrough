@@ -43,7 +43,7 @@ a:focus-visible,button:focus-visible,[tabindex]:focus-visible { outline:2px soli
 .main-nav a[aria-current]::after { transform:scaleX(1); }
 .tour-link { display:flex;align-items:center;gap:20px;font-size:11px;font-weight:500;border:1px solid #ffffff66;padding:12px 16px;white-space:nowrap;border-radius:2px;transition:background 200ms var(--ease-out),border-color 200ms var(--ease-out); }
 .arrow { display:inline-block;font-size:18px;font-weight:300;line-height:1;transition:transform 220ms var(--ease-out); }
-.journey { position:relative;height:750svh; }
+.journey { position:relative;height:1150svh; }
 .chapter-anchor { position:absolute;top:calc(var(--position) * .867);left:0;width:1px;height:1px; }
 .editorial { pointer-events:none; }
 .chapter { position:absolute;left:var(--gutter);right:var(--gutter);bottom:clamp(106px,14.5vh,160px);opacity:0;visibility:hidden;will-change:opacity,transform; }
@@ -98,7 +98,7 @@ a:focus-visible,button:focus-visible,[tabindex]:focus-visible { outline:2px soli
   .masthead { top:12px;left:12px;right:12px;height:64px;padding:0 15px;gap:10px; }
   .wordmark { gap:8px; }.wordmark svg { width:25px; }.wordmark>span { font-size:12px;letter-spacing:.2em; }.wordmark small { font-size:5.8px;letter-spacing:.16em; }
   .tour-link { gap:11px;padding:10px 11px;font-size:9px; }.tour-private { display:none; }.tour-link .arrow { font-size:16px; }
-  .journey { height:650svh; }
+  .journey { height:900svh; }
   .chapter { bottom:136px; }.chapter-kicker { font-size:8px;letter-spacing:.16em;margin-bottom:20px; }
   .chapter h1,.chapter h2 { font-size:clamp(37px,9.7vw,70px);letter-spacing:-.055em;line-height:1.05; }
   .chapter-caption { margin-top:24px;gap:14px; }.chapter-number { font-size:9px;padding-right:14px; }.chapter-caption p { font-size:11px; }
@@ -119,3 +119,15 @@ a:focus-visible,button:focus-visible,[tabindex]:focus-visible { outline:2px soli
 .motion-toggle[aria-pressed="false"] .motion-icon { background:none;opacity:.65; }
 body[data-motion="full"] .scroll-line::after { animation:scroll-guide 2.2s cubic-bezier(.65,0,.35,1) infinite!important; }
 @media(max-width:767px) { .motion-toggle { padding:12px 2px;font-size:8px;gap:6px; }.scroll-cue { max-width:95px;line-height:1.6;text-align:left; }.chapter-rail { gap:10px; } }
+
+/* Six chapters remain usable without squeezing the navigation or touch targets. */
+.main-nav { gap:clamp(12px,1.45vw,24px);font-size:10px; }
+@media(max-width:1100px) { .main-nav { display:none; } }
+@media(max-width:767px) {
+  .journey-controls { display:grid;grid-template-columns:1fr auto;row-gap:12px; }
+  .chapter-rail { grid-column:1/-1;grid-row:1;justify-content:space-between;gap:0; }
+  .chapter-rail a { min-width:38px;min-height:36px;justify-content:center; }
+  .scroll-cue { grid-column:1;grid-row:2;max-width:none; }
+  .motion-toggle { grid-column:2;grid-row:2;min-height:36px; }
+  .chapter { bottom:175px; }
+}

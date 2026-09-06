@@ -1,7 +1,7 @@
-export const FRAME_COUNT = 150;
+export const FRAME_COUNT = 350;
 export const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 export const frameFromProgress = (progress) => Math.round(clamp(progress, 0, 1) * (FRAME_COUNT - 1)) + 1;
-export const frameUrl = (index, base = import.meta.env?.BASE_URL || './') => `${base}renders/sequence/frame_${String(index).padStart(4, '0')}.jpg`;
+export const frameUrl = (index, base = import.meta.env?.BASE_URL || './', v = '3') => `${base}renders/sequence/frame_${String(index).padStart(4, '0')}.jpg${v ? `?v=${v}` : ''}`;
 export function coverRect(imageWidth, imageHeight, width, height, focus = .5) {
   const scale = Math.max(width / imageWidth, height / imageHeight);
   const w = imageWidth * scale, h = imageHeight * scale;
@@ -36,7 +36,9 @@ export class SequenceCache {
           try {
             const signal = AbortSignal.any([this.controller.signal, AbortSignal.timeout(25000)]);
             const response = await this.fetcher(this.url(index), { signal, cache: 'force-cache' });
-            if (!response.ok) throw new Error(`Frame ${index} could not be loaded (${response.status}).`);
+            if (!response.ok) {
+              throw new Error(`Frame ${index} could not be loaded (${response.status}).`);
+            }
             const blob = await response.blob();
             if (blob.size < 1000 || !blob.type.startsWith('image/')) throw new Error(`Frame ${index} is not a valid image.`);
             this.blobs.set(index, blob); onProgress(this.blobs.size, this.count); error = null; break;
@@ -53,6 +55,8 @@ export class SequenceCache {
     const results = await Promise.allSettled(Array.from({ length: Math.min(6, missing.length) }, worker));
     const failure = results.find(result => result.status === 'rejected');
     if (failure) throw failure.reason;
+
+    onProgress(this.blobs.size, this.count);
   }
   async decode(index) {
     if (this.images.has(index)) return this.images.get(index);
