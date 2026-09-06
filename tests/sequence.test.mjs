@@ -8,7 +8,7 @@ test('scroll mapping includes both endpoints and clamps overscroll', () => {
   assert.equal(frameFromProgress(.5), 176);
   assert.equal(frameFromProgress(1), 350);
   assert.equal(frameFromProgress(1.5), 350);
-  assert.equal(frameUrl(7, '/villa/'), '/villa/renders/sequence/frame_0007.jpg?v=3');
+  assert.equal(frameUrl(7, '/villa/'), '/villa/renders/sequence/frame_0007.webp?v=1');
 });
 test('canvas cover preserves aspect ratio for portrait, landscape, and retina-sized surfaces', () => {
   for (const [w, h] of [[390,844],[1440,900],[2880,1800],[1920,1080]]) {
@@ -18,7 +18,7 @@ test('canvas cover preserves aspect ratio for portrait, landscape, and retina-si
     assert.ok(Math.abs(rect.x * 2 + rect.width - w) < 1e-10);
   }
 });
-const blob = new Blob([new Uint8Array(1200)], { type: 'image/jpeg' });
+const blob = new Blob([new Uint8Array(1200)], { type: 'image/webp' });
 const ok = () => ({ ok: true, blob: async () => blob });
 test('preloads every compressed frame with bounded parallelism and reports completion', async () => {
   let active=0, peak=0, fetched=0, latest=0;
@@ -27,6 +27,19 @@ test('preloads every compressed frame with bounded parallelism and reports compl
   }});
   await cache.preload(loaded => { latest=loaded; });
   assert.equal(fetched,150); assert.equal(latest,150); assert.equal(cache.blobs.size,150); assert.ok(peak <= 6);
+  cache.dispose();
+});
+test('supports progressive initial window streaming before background completion', async () => {
+  let initialReadyFired = false;
+  const cache = new SequenceCache({ count: 100, fetcher: async () => {
+    await new Promise(r => setTimeout(r, 2)); return ok();
+  }});
+  await cache.preload({
+    initialCount: 20,
+    onInitialReady: () => { initialReadyFired = true; },
+  });
+  assert.equal(initialReadyFired, true);
+  assert.ok(cache.blobs.size >= 20);
   cache.dispose();
 });
 test('retry preserves successful downloads and recovers missing frames without double-loading them', async () => {

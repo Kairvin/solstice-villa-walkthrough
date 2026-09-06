@@ -13,13 +13,14 @@ function sequenceAssets() {
     configureServer(server) {
       server.middlewares.use('/renders/sequence', async (req, res, next) => {
         const name = req.url?.split('?')[0].replace(/^\//, '');
-        if (!/^frame_\d{4}\.jpg$/.test(name || '')) return next();
+        if (!/^frame_\d{4}\.(webp|jpg)$/.test(name || '')) return next();
         const path = resolve('renders/sequence', name);
         try {
           const file = await stat(path);
-          res.setHeader('Content-Type', 'image/jpeg');
+          const isWebp = name.endsWith('.webp');
+          res.setHeader('Content-Type', isWebp ? 'image/webp' : 'image/jpeg');
           res.setHeader('Content-Length', file.size);
-          res.setHeader('Cache-Control', 'public, max-age=3600');
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
           createReadStream(path).pipe(res);
         } catch { res.statusCode = 404; res.end('Frame unavailable'); }
       });
@@ -29,7 +30,7 @@ function sequenceAssets() {
       const destination = resolve('dist/renders/sequence');
       await mkdir(destination, { recursive: true });
       for (const file of await readdir(resolve('renders/sequence'))) {
-        if (/^frame_\d{4}\.jpg$/.test(file)) await copyFile(resolve('renders/sequence', file), resolve(destination, file));
+        if (/^frame_\d{4}\.webp$/.test(file)) await copyFile(resolve('renders/sequence', file), resolve(destination, file));
       }
     },
   };

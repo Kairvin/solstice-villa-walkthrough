@@ -3,6 +3,20 @@ import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+export function webpDimensions(buffer) {
+  if (buffer.length < 30 || buffer.toString('ascii', 0, 4) !== 'RIFF' || buffer.toString('ascii', 8, 12) !== 'WEBP') {
+    throw new Error('Invalid or incomplete WebP');
+  }
+  const chunk = buffer.toString('ascii', 12, 16);
+  if (chunk === 'VP8 ') {
+    return { width: buffer.readUInt16LE(26) & 0x3fff, height: buffer.readUInt16LE(28) & 0x3fff };
+  }
+  if (chunk === 'VP8X') {
+    return { width: 1 + buffer.readUIntLE(24, 3), height: 1 + buffer.readUIntLE(27, 3) };
+  }
+  throw new Error(`Unsupported WebP chunk type: ${chunk}`);
+}
+
 export function jpegDimensions(buffer) {
   if (buffer[0] !== 0xff || buffer[1] !== 0xd8 || buffer.at(-2) !== 0xff || buffer.at(-1) !== 0xd9) throw new Error('Invalid or incomplete JPEG');
   let offset = 2;
@@ -21,10 +35,10 @@ export function jpegDimensions(buffer) {
 export async function verifySequence(root = resolve('.')) {
   const frames = [], failures = [], hashes = new Set();
   for (let frame = 1; frame <= 350; frame++) {
-    const name = `frame_${String(frame).padStart(4, '0')}.jpg`;
+    const name = `frame_${String(frame).padStart(4, '0')}.webp`;
     try {
       const file = await readFile(resolve(root, 'renders/sequence', name));
-      const dimensions = jpegDimensions(file);
+      const dimensions = webpDimensions(file);
       if (dimensions.width !== 1920 || dimensions.height !== 1080) throw new Error(`Expected 1920×1080, got ${dimensions.width}×${dimensions.height}`);
       const sha256 = createHash('sha256').update(file).digest('hex');
       if (hashes.has(sha256)) throw new Error('Duplicate frame content');
@@ -32,9 +46,9 @@ export async function verifySequence(root = resolve('.')) {
     } catch (error) { failures.push(`${name}: ${error.message}`); }
   }
   if (failures.length) throw new Error(`Sequence is incomplete or invalid (${failures.length} issues):\n${failures.join('\n')}`);
-  const manifest = { count: 350, width: 1920, height: 1080, format: 'JPEG', quality: 90, totalBytes: frames.reduce((sum, frame) => sum + frame.bytes, 0), frames };
+  const manifest = { count: 350, width: 1920, height: 1080, format: 'WEBP', quality: 80, totalBytes: frames.reduce((sum, frame) => sum + frame.bytes, 0), frames };
   await writeFile(resolve(root, 'public/sequence-manifest.json'), JSON.stringify(manifest, null, 2));
-  console.log(`Verified all 350 unique JPEG frames at 1920×1080. ${(manifest.totalBytes / 1024 / 1024).toFixed(1)} MiB total.`);
+  console.log(`Verified all 350 unique WebP frames at 1920×1080. ${(manifest.totalBytes / 1024 / 1024).toFixed(1)} MiB total.`);
   return manifest;
 }
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
